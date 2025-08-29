@@ -1,20 +1,127 @@
+import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, View, StyleSheet } from 'react-native';
+import { Storage } from './src/utils/storage';
+import LoginScreen from './src/screens/LoginScreen';
+import AgendamentosScreen from './src/screens/AgendamentosScreen';
+import AgendamentoFormScreen from './src/screens/AgendamentoFormScreen';
+import type { User, AgendamentoData } from './src/types';
+
+type Screen = 'login' | 'agendamentos' | 'form';
 
 export default function App() {
+  const [currentScreen, setCurrentScreen] = useState<Screen>('login');
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [editingAgendamento, setEditingAgendamento] = useState<AgendamentoData | null>(null);
+
+  // Verificar se já está logado
+  useEffect(() => {
+    checkLoginStatus();
+  }, []);
+
+  const checkLoginStatus = async () => {
+    try {
+      const isLoggedIn = await Storage.isLoggedIn();
+      const isAdmin = await Storage.isAdmin();
+      
+      if (isLoggedIn && isAdmin) {
+        const userData = await Storage.getUser();
+        if (userData) {
+          setUser(userData);
+          setCurrentScreen('agendamentos');
+        }
+      }
+    } catch (error) {
+      console.log('Erro ao verificar login:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handlers
+  const handleLoginSuccess = (userData: User) => {
+    setUser(userData);
+    setCurrentScreen('agendamentos');
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    setCurrentScreen('login');
+  };
+
+  const handleNewAgendamento = () => {
+    setEditingAgendamento(null);
+    setCurrentScreen('form');
+  };
+
+  const handleEditAgendamento = (agendamento: AgendamentoData) => {
+    setEditingAgendamento(agendamento);
+    setCurrentScreen('form');
+  };
+
+  const handleFormSave = () => {
+    setEditingAgendamento(null);
+    setCurrentScreen('agendamentos');
+  };
+
+  const handleFormCancel = () => {
+    setEditingAgendamento(null);
+    setCurrentScreen('agendamentos');
+  };
+
+  // Loading inicial
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#007AFF" />
+      </View>
+    );
+  }
+
+  // Renderizar tela baseada no estado
+  const renderScreen = () => {
+    switch (currentScreen) {
+      case 'login':
+        return <LoginScreen onLoginSuccess={handleLoginSuccess} />;
+      
+      case 'agendamentos':
+        return (
+          <AgendamentosScreen
+            user={user!}
+            onLogout={handleLogout}
+            onEditAgendamento={handleEditAgendamento}
+            onNewAgendamento={handleNewAgendamento}
+          />
+        );
+      
+      case 'form':
+        return (
+          <AgendamentoFormScreen
+            agendamento={editingAgendamento}
+            onSave={handleFormSave}
+            onCancel={handleFormCancel}
+          />
+        );
+      
+      default:
+        return <LoginScreen onLoginSuccess={handleLoginSuccess} />;
+    }
+  };
+
   return (
-    <View style={styles.container}>
-      <Text>Open up App.tsx to start working on your app!</Text>
+    <>
       <StatusBar style="auto" />
-    </View>
+      {renderScreen()}
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  loadingContainer: {
     flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
   },
 });
