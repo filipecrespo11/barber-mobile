@@ -14,6 +14,9 @@ import { apiRequest, API_CONFIG } from './services/api';
 import { Storage } from './utils/storage';
 import type { User, LoginResponse } from './types';
 
+// Definir __DEV__ para compatibilidade
+const __DEV__ = process.env.NODE_ENV === 'development';
+
 interface LoginScreenProps {
   onLoginSuccess: (user: User) => void;
 }
@@ -37,11 +40,33 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
         body: JSON.stringify({ email, password }),
       });
 
-      const usuario = response.data?.usuario || response.data?.user;
-      const token = response.data?.token;
+      // Debug: log da resposta completa
+      if (__DEV__) {
+        console.log('📦 Resposta completa da API:', JSON.stringify(response, null, 2));
+      }
 
-      if (!usuario || !token) {
-        Alert.alert('Erro', 'Resposta inválida do servidor');
+      // Acessar resposta como any para permitir propriedades dinâmicas
+      const responseAny = response as any;
+
+      // Tentar múltiplas formas de extrair usuário e token
+      const usuario = responseAny.usuario || responseAny.user || 
+                     response.data?.usuario || response.data?.user || 
+                     (response.data as any);
+      const token = responseAny.token || response.data?.token || 
+                   responseAny.accessToken || responseAny.access_token;
+
+      if (__DEV__) {
+        console.log('👤 Usuário extraído:', JSON.stringify(usuario, null, 2));
+        console.log('🔑 Token extraído:', token);
+      }
+
+      if (!usuario) {
+        Alert.alert('Erro', 'Usuário não encontrado na resposta do servidor');
+        return;
+      }
+
+      if (!token) {
+        Alert.alert('Erro', 'Token não encontrado na resposta do servidor');
         return;
       }
 
