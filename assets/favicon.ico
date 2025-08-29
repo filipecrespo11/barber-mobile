@@ -1,0 +1,6 @@
+<!-- ICO placeholder - Simple SVG to serve as favicon -->
+<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+  <rect width="32" height="32" fill="#1f2937"/>
+  <rect x="8" y="8" width="16" height="16" rx="2" fill="#fbbf24"/>
+  <text x="16" y="20" text-anchor="middle" fill="#1f2937" font-family="Arial, sans-serif" font-size="12" font-weight="bold">L</text>
+</svg>

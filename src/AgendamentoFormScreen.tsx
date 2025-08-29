@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import { apiRequest, API_CONFIG } from './services/api';
@@ -29,10 +30,14 @@ export default function AgendamentoFormScreen({
   onCancel,
 }: AgendamentoFormScreenProps) {
   const [loading, setLoading] = useState(false);
+  const [loadingHorarios, setLoadingHorarios] = useState(false);
+  const [horariosOcupados, setHorariosOcupados] = useState<string[]>([]);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
   const [formData, setFormData] = useState({
     nome: '',
     telefone: '',
-    servico: 'Corte Masculino',
+    servico: 'corte',
     data: '',
     horario: '09:00',
   });
@@ -40,18 +45,134 @@ export default function AgendamentoFormScreen({
   const isEditing = !!agendamento;
   const timeSlots = generateTimeSlots();
 
+  // Buscar horários ocupados para a data selecionada
+  const buscarHorariosOcupados = async (dataSelecionada: string) => {
+    if (!dataSelecionada || dataSelecionada.length < 10) return;
+
+    try {
+      setLoadingHorarios(true);
+      
+      // Converter data para formato ISO
+      const [day, month, year] = dataSelecionada.split('/');
+      const dataISO = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+      
+      const response = await apiRequest(API_CONFIG.endpoints.agendamentos.listar);
+      
+      if (response.success && Array.isArray(response.data)) {
+        // Filtrar agendamentos da data selecionada
+        const agendamentosDaData = response.data.filter((ag: any) => {
+          return ag.data === dataISO;
+        });
+        
+        // Extrair apenas os horários ocupados
+        const horarios = agendamentosDaData.map((ag: any) => ag.horario);
+        
+        // Se estiver editando, remover o horário atual dos ocupados
+        if (isEditing && agendamento) {
+          const horarioAtual = agendamento.horario || agendamento.hora;
+          const horariosFiltered = horarios.filter((h: string) => h !== horarioAtual);
+          setHorariosOcupados(horariosFiltered);
+        } else {
+          setHorariosOcupados(horarios);
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao buscar horários ocupados:', error);
+      setHorariosOcupados([]);
+    } finally {
+      setLoadingHorarios(false);
+    }
+  };
+
+  // Filtrar horários disponíveis
+  const horariosDisponiveis = timeSlots.filter(horario => !horariosOcupados.includes(horario));
+
   // Inicializar form
   useEffect(() => {
     if (agendamento) {
+      const dataFormatted = agendamento.data || '';
       setFormData({
         nome: agendamento.nome || '',
         telefone: agendamento.telefone || '',
-        servico: agendamento.servico || 'Corte Masculino',
-        data: agendamento.data || '',
+        servico: agendamento.servico || 'corte',
+        data: dataFormatted,
         horario: agendamento.horario || agendamento.hora || '09:00',
       });
+      
+      // Se há data, converter para o seletor
+      if (dataFormatted) {
+        // Se a data vem no formato ISO (YYYY-MM-DD), converter para DD/MM/YYYY
+        let displayDate = dataFormatted;
+        if (dataFormatted.includes('-') && dataFormatted.length === 10) {
+          const [year, month, day] = dataFormatted.split('-');
+          displayDate = `${day}/${month}/${year}`;
+        }
+        setFormData(prev => ({ ...prev, data: displayDate }));
+        setSelectedDate(parseDisplayDate(displayDate));
+      }
     }
   }, [agendamento]);
+
+  // Buscar horários ocupados quando a data mudar
+  useEffect(() => {
+    if (formData.data && formData.data.length === 10) {
+      buscarHorariosOcupados(formData.data);
+    } else {
+      setHorariosOcupados([]);
+    }
+  }, [formData.data, isEditing]);
+
+  // Ajustar horário selecionado se não estiver disponível
+  useEffect(() => {
+    if (horariosDisponiveis.length > 0 && !horariosDisponiveis.includes(formData.horario)) {
+      // Se o horário atual não está disponível, selecionar o primeiro disponível
+      setFormData(prev => ({ ...prev, horario: horariosDisponiveis[0] }));
+    }
+  }, [horariosDisponiveis, formData.horario]);
+
+  // Função para formatar data para DD/MM/YYYY
+  const formatDateToDisplay = (date: Date): string => {
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  // Função para converter DD/MM/YYYY para Date
+  const parseDisplayDate = (dateStr: string): Date => {
+    if (!dateStr || dateStr.length !== 10) return new Date();
+    const [day, month, year] = dateStr.split('/');
+    return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+  };
+
+  // Inicializar data selecionada quando há agendamento ou mudança na data do form
+  useEffect(() => {
+    if (formData.data) {
+      setSelectedDate(parseDisplayDate(formData.data));
+    }
+  }, []);
+
+  // Lidar com mudança no seletor de data
+  const handleDateChange = (event: any, date?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false); // No Android, fecha após seleção
+    }
+    
+    if (date) {
+      setSelectedDate(date);
+      const formattedDate = formatDateToDisplay(date);
+      setFormData(prev => ({ ...prev, data: formattedDate }));
+    }
+  };
+
+  // Abrir seletor de data
+  const openDatePicker = () => {
+    if (Platform.OS === 'ios') {
+      setShowDatePicker(!showDatePicker); // No iOS, toggle
+    } else {
+      setShowDatePicker(true); // No Android, sempre abre
+    }
+  };
 
   // Formatar telefone automaticamente
   const handlePhoneChange = (text: string) => {
@@ -95,6 +216,12 @@ export default function AgendamentoFormScreen({
       return false;
     }
 
+    // Verificar se horário não está ocupado (apenas para novos agendamentos)
+    if (!isEditing && horariosOcupados.includes(formData.horario)) {
+      Alert.alert('Erro', 'Este horário já está ocupado. Escolha outro horário.');
+      return false;
+    }
+
     return true;
   };
 
@@ -105,18 +232,28 @@ export default function AgendamentoFormScreen({
     setLoading(true);
 
     try {
+      // Converter data do formato DD/MM/YYYY para YYYY-MM-DD
+      const convertDateFormat = (dateStr: string) => {
+        const [day, month, year] = dateStr.split('/');
+        return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+      };
+
       const payload = {
         nome: formData.nome.trim(),
         telefone: formData.telefone.replace(/\D/g, ''), // Apenas números
         servico: formData.servico,
-        data: formData.data,
+        data: convertDateFormat(formData.data), // Converter formato da data
         horario: formData.horario,
       };
 
       if (isEditing) {
         // Atualizar
         const id = agendamento!.id || agendamento!._id;
-        await apiRequest(`${API_CONFIG.endpoints.agendamentos.atualizar}/${id}`, {
+        if (!id) {
+          throw new Error('ID do agendamento não encontrado');
+        }
+        
+        await apiRequest(API_CONFIG.endpoints.agendamentos.atualizar(id), {
           method: 'PUT',
           body: JSON.stringify(payload),
         });
@@ -124,11 +261,11 @@ export default function AgendamentoFormScreen({
         Alert.alert('Sucesso', 'Agendamento atualizado com sucesso');
       } else {
         // Criar novo
-        await apiRequest(API_CONFIG.endpoints.agendamentos.criar, {
+        const result = await apiRequest(API_CONFIG.endpoints.agendamentos.criar, {
           method: 'POST',
           body: JSON.stringify(payload),
         });
-
+        
         Alert.alert('Sucesso', 'Agendamento criado com sucesso');
       }
 
@@ -203,47 +340,80 @@ export default function AgendamentoFormScreen({
               onValueChange={(value) => setFormData(prev => ({ ...prev, servico: value }))}
               style={styles.picker}
             >
-              <Picker.Item label="Corte Masculino" value="Corte Masculino" />
-              <Picker.Item label="Barba & Bigode" value="Barba & Bigode" />
-              <Picker.Item label="Combo Completo" value="Combo Completo" />
-              <Picker.Item label="Corte Infantil" value="Corte Infantil" />
+              <Picker.Item label="Corte" value="corte" />
+              <Picker.Item label="Barba" value="barba" />
             </Picker>
           </View>
         </View>
 
         <View style={styles.field}>
           <Text style={styles.label}>Data *</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="DD/MM/AAAA"
-            value={formData.data}
-            onChangeText={(text) => {
-              // Auto-formatar data
-              let formatted = text.replace(/\D/g, '');
-              if (formatted.length >= 3 && formatted.length <= 4) {
-                formatted = formatted.replace(/(\d{2})(\d{1,2})/, '$1/$2');
-              } else if (formatted.length >= 5) {
-                formatted = formatted.replace(/(\d{2})(\d{2})(\d{1,4})/, '$1/$2/$3');
-              }
-              setFormData(prev => ({ ...prev, data: formatted }));
-            }}
-            keyboardType="numeric"
-            maxLength={10}
-          />
+          <TouchableOpacity 
+            style={[styles.input, styles.dateButton]}
+            onPress={openDatePicker}
+          >
+            <Text style={[styles.dateText, !formData.data && styles.placeholderText]}>
+              {formData.data || 'Selecione uma data'}
+            </Text>
+            <Ionicons name="calendar-outline" size={20} color="#007AFF" />
+          </TouchableOpacity>
+          
+          {showDatePicker && (
+            <View>
+              <DateTimePicker
+                value={selectedDate}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={handleDateChange}
+                minimumDate={new Date()} // Não permitir datas passadas
+                maximumDate={new Date(2030, 11, 31)} // Limite máximo razoável
+              />
+              {Platform.OS === 'ios' && (
+                <TouchableOpacity 
+                  style={styles.datePickerButton}
+                  onPress={() => setShowDatePicker(false)}
+                >
+                  <Text style={styles.datePickerButtonText}>Concluído</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
         </View>
 
         <View style={styles.field}>
-          <Text style={styles.label}>Horário *</Text>
+          <Text style={styles.label}>
+            Horário * 
+            {loadingHorarios && <Text style={styles.loadingText}> (carregando...)</Text>}
+            {!loadingHorarios && formData.data && horariosOcupados.length > 0 && (
+              <Text style={styles.loadingText}>
+                {` (${horariosOcupados.length} horário${horariosOcupados.length > 1 ? 's' : ''} ocupado${horariosOcupados.length > 1 ? 's' : ''})`}
+              </Text>
+            )}
+          </Text>
           <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={formData.horario}
-              onValueChange={(value) => setFormData(prev => ({ ...prev, horario: value }))}
-              style={styles.picker}
-            >
-              {timeSlots.map((time: string) => (
-                <Picker.Item key={time} label={time} value={time} />
-              ))}
-            </Picker>
+            {loadingHorarios ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color="#007AFF" />
+                <Text style={styles.loadingText}>Verificando horários disponíveis...</Text>
+              </View>
+            ) : horariosDisponiveis.length === 0 && formData.data ? (
+              <View style={styles.noHorariosContainer}>
+                <Text style={styles.noHorariosText}>
+                  Nenhum horário disponível para esta data
+                </Text>
+              </View>
+            ) : (
+              <Picker
+                selectedValue={formData.horario}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, horario: value }))}
+                style={styles.picker}
+                enabled={!loadingHorarios && horariosDisponiveis.length > 0}
+              >
+                {horariosDisponiveis.map((time: string) => (
+                  <Picker.Item key={time} label={time} value={time} />
+                ))}
+              </Picker>
+            )}
           </View>
         </View>
 
@@ -347,6 +517,51 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   saveButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  loadingText: {
+    fontSize: 12,
+    color: '#666',
+    fontStyle: 'italic',
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 15,
+    gap: 8,
+  },
+  noHorariosContainer: {
+    padding: 15,
+    alignItems: 'center',
+  },
+  noHorariosText: {
+    fontSize: 14,
+    color: '#888',
+    textAlign: 'center',
+  },
+  dateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  dateText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  placeholderText: {
+    color: '#999',
+  },
+  datePickerButton: {
+    backgroundColor: '#007AFF',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  datePickerButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',

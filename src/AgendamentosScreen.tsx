@@ -9,7 +9,9 @@ import {
   ActivityIndicator,
   RefreshControl,
   TextInput,
+  Platform,
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { apiRequest, API_CONFIG } from './services/api';
 import { Storage } from './utils/storage';
@@ -35,6 +37,10 @@ export default function AgendamentosScreen({
   const [searchTerm, setSearchTerm] = useState('');
   const [dateStart, setDateStart] = useState('');
   const [dateEnd, setDateEnd] = useState('');
+  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+  const [selectedStartDate, setSelectedStartDate] = useState(new Date());
+  const [selectedEndDate, setSelectedEndDate] = useState(new Date());
 
   // Paginação
   const [page, setPage] = useState(1);
@@ -66,6 +72,87 @@ export default function AgendamentosScreen({
       setLoading(false);
       setRefreshing(false);
     }
+  };
+
+  // Funções para formatar data
+  const formatDateToDisplay = (date: Date): string => {
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  // Funções para lidar com seleção de data de início
+  const handleStartDateChange = (event: any, date?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowStartDatePicker(false);
+    }
+    if (date) {
+      setSelectedStartDate(date);
+      setDateStart(formatDateToDisplay(date));
+    }
+  };
+
+  const openStartDatePicker = () => {
+    setShowStartDatePicker(!showStartDatePicker);
+  };
+
+  // Funções para lidar com seleção de data de fim
+  const handleEndDateChange = (event: any, date?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowEndDatePicker(false);
+    }
+    if (date) {
+      setSelectedEndDate(date);
+      setDateEnd(formatDateToDisplay(date));
+    }
+  };
+
+  const openEndDatePicker = () => {
+    setShowEndDatePicker(!showEndDatePicker);
+  };
+
+  // Limpar filtros de data
+  const clearDateFilters = () => {
+    setDateStart('');
+    setDateEnd('');
+    setSelectedStartDate(new Date());
+    setSelectedEndDate(new Date());
+  };
+
+  // Filtros rápidos
+  const setTodayFilter = () => {
+    const today = new Date();
+    setSelectedStartDate(today);
+    setSelectedEndDate(today);
+    setDateStart(formatDateToDisplay(today));
+    setDateEnd(formatDateToDisplay(today));
+  };
+
+  const setThisWeekFilter = () => {
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - dayOfWeek);
+    
+    const endOfWeek = new Date(today);
+    endOfWeek.setDate(today.getDate() - dayOfWeek + 6);
+    
+    setSelectedStartDate(startOfWeek);
+    setSelectedEndDate(endOfWeek);
+    setDateStart(formatDateToDisplay(startOfWeek));
+    setDateEnd(formatDateToDisplay(endOfWeek));
+  };
+
+  const setThisMonthFilter = () => {
+    const today = new Date();
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    
+    setSelectedStartDate(startOfMonth);
+    setSelectedEndDate(endOfMonth);
+    setDateStart(formatDateToDisplay(startOfMonth));
+    setDateEnd(formatDateToDisplay(endOfMonth));
   };
 
   // Filtrar agendamentos
@@ -135,7 +222,12 @@ export default function AgendamentosScreen({
           onPress: async () => {
             try {
               const id = agendamento.id || agendamento._id;
-              await apiRequest(`${API_CONFIG.endpoints.agendamentos.deletar}/${id}`, {
+              if (!id) {
+                Alert.alert('Erro', 'ID do agendamento não encontrado');
+                return;
+              }
+              
+              await apiRequest(API_CONFIG.endpoints.agendamentos.remover(id), {
                 method: 'DELETE',
               });
 
@@ -246,6 +338,105 @@ export default function AgendamentosScreen({
           value={searchTerm}
           onChangeText={setSearchTerm}
         />
+        
+        {/* Filtros de Data */}
+        <View style={styles.dateFilters}>
+          <Text style={styles.dateFilterLabel}>Filtrar por período:</Text>
+          
+          <View style={styles.dateFilterRow}>
+            {/* Data Início */}
+            <View style={styles.dateFilterItem}>
+              <Text style={styles.dateLabel}>De:</Text>
+              <TouchableOpacity 
+                style={styles.dateButton}
+                onPress={openStartDatePicker}
+              >
+                <Text style={[styles.dateText, !dateStart && styles.placeholderText]}>
+                  {dateStart || 'Início'}
+                </Text>
+                <Ionicons name="calendar-outline" size={16} color="#007AFF" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Data Fim */}
+            <View style={styles.dateFilterItem}>
+              <Text style={styles.dateLabel}>Até:</Text>
+              <TouchableOpacity 
+                style={styles.dateButton}
+                onPress={openEndDatePicker}
+              >
+                <Text style={[styles.dateText, !dateEnd && styles.placeholderText]}>
+                  {dateEnd || 'Fim'}
+                </Text>
+                <Ionicons name="calendar-outline" size={16} color="#007AFF" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Botão Limpar */}
+            {(dateStart || dateEnd) && (
+              <TouchableOpacity 
+                style={styles.clearButton}
+                onPress={clearDateFilters}
+              >
+                <Ionicons name="close-circle" size={20} color="#FF3B30" />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Filtros Rápidos */}
+          <View style={styles.quickFilters}>
+            <TouchableOpacity style={styles.quickFilterButton} onPress={setTodayFilter}>
+              <Text style={styles.quickFilterText}>Hoje</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.quickFilterButton} onPress={setThisWeekFilter}>
+              <Text style={styles.quickFilterText}>Esta Semana</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.quickFilterButton} onPress={setThisMonthFilter}>
+              <Text style={styles.quickFilterText}>Este Mês</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Seletores de Data */}
+          {showStartDatePicker && (
+            <View style={styles.datePickerContainer}>
+              <DateTimePicker
+                value={selectedStartDate}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'compact' : 'default'}
+                onChange={handleStartDateChange}
+                maximumDate={new Date(2030, 11, 31)}
+              />
+              {Platform.OS === 'ios' && (
+                <TouchableOpacity 
+                  style={styles.datePickerDone}
+                  onPress={() => setShowStartDatePicker(false)}
+                >
+                  <Text style={styles.datePickerDoneText}>OK</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
+          {showEndDatePicker && (
+            <View style={styles.datePickerContainer}>
+              <DateTimePicker
+                value={selectedEndDate}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'compact' : 'default'}
+                onChange={handleEndDateChange}
+                maximumDate={new Date(2030, 11, 31)}
+              />
+              {Platform.OS === 'ios' && (
+                <TouchableOpacity 
+                  style={styles.datePickerDone}
+                  onPress={() => setShowEndDatePicker(false)}
+                >
+                  <Text style={styles.datePickerDoneText}>OK</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+        </View>
       </View>
 
       {/* Lista */}
@@ -290,7 +481,7 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   header: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#071625ff',
     padding: 16,
     paddingTop: 48,
     flexDirection: 'row',
@@ -377,10 +568,10 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   editButton: {
-    backgroundColor: '#FF9500',
+    backgroundColor: '#fcd600ff',
   },
   deleteButton: {
-    backgroundColor: '#FF3B30',
+    backgroundColor: '#f31307ff',
   },
   actionButtonText: {
     color: '#fff',
@@ -412,5 +603,93 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
+  },
+  // Estilos para filtros de data
+  dateFilters: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+  },
+  dateFilterLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  dateFilterRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 12,
+  },
+  dateFilterItem: {
+    flex: 1,
+  },
+  dateLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 4,
+  },
+  dateButton: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  dateText: {
+    fontSize: 14,
+    color: '#333',
+  },
+  placeholderText: {
+    color: '#999',
+  },
+  clearButton: {
+    padding: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  datePickerContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  datePickerDone: {
+    backgroundColor: '#007AFF',
+    borderRadius: 6,
+    padding: 8,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  datePickerDoneText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  // Filtros rápidos
+  quickFilters: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  quickFilterButton: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    flex: 1,
+    alignItems: 'center',
+  },
+  quickFilterText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
   },
 });

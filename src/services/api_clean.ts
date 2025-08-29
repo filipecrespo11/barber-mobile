@@ -10,10 +10,10 @@ export const API_CONFIG = {
       login: '/auterota/login',
     },
     agendamentos: {
-      criar: '/auterota/agendar',
       listar: '/auterota/agendamentos',
-      atualizar: (id: string | number) => `/auterota/agendar/${id}`,
-      remover: (id: string | number) => `/auterota/agendar/${id}`,
+      criar: '/auterota/agendamentos',
+      atualizar: '/auterota/agendamentos',
+      deletar: '/auterota/agendamentos',
     },
   },
 };
