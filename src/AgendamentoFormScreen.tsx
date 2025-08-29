@@ -13,9 +13,9 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
-import { apiRequest, API_CONFIG } from '../services/api';
-import { generateTimeSlots, formatPhone, isDateInPast, isTimeInPast } from '../utils/formatters';
-import type { AgendamentoData } from '../types';
+import { apiRequest, API_CONFIG } from './services/api';
+import { generateTimeSlots, formatPhone, isDateInPast, isTimeInPast } from './utils/formatters';
+import type { AgendamentoData } from './types';
 
 interface AgendamentoFormScreenProps {
   agendamento?: AgendamentoData | null;
@@ -240,7 +240,7 @@ export default function AgendamentoFormScreen({
               onValueChange={(value) => setFormData(prev => ({ ...prev, horario: value }))}
               style={styles.picker}
             >
-              {timeSlots.map((time) => (
+              {timeSlots.map((time: string) => (
                 <Picker.Item key={time} label={time} value={time} />
               ))}
             </Picker>

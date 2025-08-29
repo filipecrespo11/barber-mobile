@@ -11,10 +11,10 @@ import {
   TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { apiRequest, API_CONFIG } from '../services/api';
-import { Storage } from '../utils/storage';
-import { normalizeStr, parseDate, formatDate, formatPhone } from '../utils/formatters';
-import type { AgendamentoData, User } from '../types';
+import { apiRequest, API_CONFIG } from './services/api';
+import { Storage } from './utils/storage';
+import { normalizeStr, parseDate, formatDate, formatPhone } from './utils/formatters';
+import type { AgendamentoData, User } from './types';
 
 interface AgendamentosScreenProps {
   user: User;

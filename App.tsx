@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import { Storage } from './src/utils/storage';
-import LoginScreen from './src/screens/LoginScreen';
-import AgendamentosScreen from './src/screens/AgendamentosScreen';
-import AgendamentoFormScreen from './src/screens/AgendamentoFormScreen';
+import LoginScreen from './src/LoginScreen';
+import AgendamentosScreen from './src/AgendamentosScreen';
+import AgendamentoFormScreen from './src/AgendamentoFormScreen';
 import type { User, AgendamentoData } from './src/types';
 
 type Screen = 'login' | 'agendamentos' | 'form';

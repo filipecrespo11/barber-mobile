@@ -4,7 +4,7 @@ import type { ApiResponse } from '../types';
 // Configuração da API
 export const API_CONFIG = {
   // TROCAR PARA SEU IP LOCAL ou URL de produção
-  baseURL: 'http://192.168.1.100:5000', // Substitua pelo seu IP
+  baseURL: 'https://backbarbearialopez.onrender.com', // URL de produção do .env
   endpoints: {
     auth: {
       login: '/auterota/login',

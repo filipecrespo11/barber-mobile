@@ -13,6 +13,12 @@ export interface LoginData {
   password: string;
 }
 
+export interface LoginResponse {
+  usuario?: User;
+  user?: User;
+  token: string;
+}
+
 export interface AgendamentoData {
   id?: string | number;
   _id?: string;

@@ -10,9 +10,9 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { apiRequest, API_CONFIG } from '../services/api';
-import { Storage } from '../utils/storage';
-import type { User } from '../types';
+import { apiRequest, API_CONFIG } from './services/api';
+import { Storage } from './utils/storage';
+import type { User, LoginResponse } from './types';
 
 interface LoginScreenProps {
   onLoginSuccess: (user: User) => void;
@@ -32,13 +32,13 @@ export default function LoginScreen({ onLoginSuccess }: LoginScreenProps) {
     setLoading(true);
 
     try {
-      const response = await apiRequest(API_CONFIG.endpoints.auth.login, {
+      const response = await apiRequest<LoginResponse>(API_CONFIG.endpoints.auth.login, {
         method: 'POST',
         body: JSON.stringify({ email, password }),
       });
 
-      const usuario = response.usuario || response.user || response.data?.usuario || response.data?.user;
-      const token = response.token || response.data?.token;
+      const usuario = response.data?.usuario || response.data?.user;
+      const token = response.data?.token;
 
       if (!usuario || !token) {
         Alert.alert('Erro', 'Resposta inválida do servidor');
